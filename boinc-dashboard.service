@@ -1,0 +1,15 @@
+[Unit]
+Description=BOINC Dashboard Web
+After=network.target boinc-client.service
+Wants=boinc-client.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/boinc-dashboard
+ExecStart=/opt/boinc-dashboard/venv/bin/python3 /opt/boinc-dashboard/app.py
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

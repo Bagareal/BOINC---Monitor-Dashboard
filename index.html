@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOINC · Monitor</title>
+<link rel="icon" type="image/gif" href="https://boinc.berkeley.edu/logo/favicon.gif">
+<style>
+  :root{
+    --bg: #0a0d12;
+    --bg-panel: #10141b;
+    --bg-panel-raised: #161b24;
+    --line: #232a36;
+    --text: #e8ecf1;
+    --text-dim: #7c8798;
+    --blue: #2f6fed;
+    --blue-dim: #1c3f8c;
+    --yellow: #f4b400;
+    --yellow-dim: #7a5a00;
+    --green: #35c37e;
+    --red: #e5484d;
+    --mono: 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
+    --sans: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg) 100%);
+    position: sticky;
+    top:0;
+    z-index: 20;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand-mark{
+    height:40px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .brand-mark img{
+    height:100%;
+    width:auto;
+    object-fit: contain;
+    filter: drop-shadow(0 0 10px rgba(47,111,237,0.35));
+  }
+  .brand-text h1{
+    font-size: 16px;
+    margin:0;
+    letter-spacing: 0.02em;
+    font-weight: 700;
+  }
+  .brand-text span{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .live-pill{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--bg-panel);
+  }
+  .dot{
+    width:7px; height:7px; border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  .dot.offline{ background: var(--red); box-shadow: 0 0 8px var(--red); animation:none; }
+  @keyframes pulse{
+    0%,100%{ opacity:1; transform: scale(1); }
+    50%{ opacity:.4; transform: scale(0.8); }
+  }
+
+  main{
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  section{ margin-bottom: 40px; }
+  .section-head{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .section-head h2{
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin:0;
+    font-weight: 600;
+  }
+  .section-head h2 b{ color: var(--yellow); }
+
+  /* ---------- Stat cards ---------- */
+  .stat-grid{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat-card{
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow:hidden;
+  }
+  .stat-card::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0; width:3px;
+    background: var(--blue);
+  }
+  .stat-card.accent-yellow::before{ background: var(--yellow); }
+  .stat-label{
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .stat-value{
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .stat-sub{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ---------- Task cards ---------- */
+  .task-list{ display:flex; flex-direction:column; gap:10px; }
+  .task-card{
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display:grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items:center;
+  }
+  .task-main{ min-width:0; }
+  .task-title{
+    font-weight:600;
+    font-size: 14px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .task-meta{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    display:flex; gap:12px; flex-wrap:wrap;
+  }
+  .task-meta a{ color: var(--blue); text-decoration:none; }
+  .task-meta a:hover{ text-decoration:underline; }
+  .progress-wrap{
+    display:flex; align-items:center; gap:10px;
+    min-width: 160px;
+  }
+  .progress-bar{
+    flex:1;
+    height: 6px;
+    background: var(--line);
+    border-radius: 4px;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background: linear-gradient(90deg, var(--blue), var(--yellow));
+    border-radius: 4px;
+    transition: width .4s ease;
+  }
+  .progress-pct{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    width: 42px;
+    text-align:right;
+  }
+  .empty-state{
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 24px;
+    text-align:center;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+  }
+
+  /* ---------- Projects ---------- */
+  .project-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .project-card{
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .project-name{ font-weight:600; font-size:14px; margin-bottom:8px; }
+  .project-name a{ color:var(--text); text-decoration:none; }
+  .project-name a:hover{ color: var(--blue); }
+  .project-row{
+    display:flex; justify-content:space-between;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--text-dim);
+    padding: 3px 0;
+  }
+  .project-row b{ color: var(--text); font-weight:500; }
+
+  /* ---------- Filters + charts ---------- */
+  .filters{
+    display:flex; gap:10px; align-items:center;
+  }
+  select, button.action{
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 12px;
+    border-radius: 7px;
+    cursor:pointer;
+  }
+  button.action{
+    color: var(--bg);
+    background: var(--yellow);
+    border-color: var(--yellow);
+    font-weight:600;
+  }
+  button.action:hover{ filter: brightness(1.08); }
+  select:hover{ border-color: var(--blue); }
+
+  .table-wrap{
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-x: auto;
+  }
+  table.data-table{
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+    min-width: 600px;
+  }
+  table.data-table thead th{
+    text-align:left;
+    padding: 10px 14px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: .06em;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  table.data-table tbody td{
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  table.data-table tbody tr:last-child td{ border-bottom:none; }
+  table.data-table tbody tr:hover{ background: var(--bg-panel-raised); }
+  table.data-table td.file-name{
+    max-width: 240px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--text);
+  }
+  table.data-table td.num{ color: var(--yellow); }
+  table.data-table td.dim{ color: var(--text-dim); }
+
+  footer{
+    text-align:center;
+    padding: 30px 20px 40px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  footer .dot-inline{ color: var(--yellow); }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 900px){
+    .stat-grid{ grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px){
+    header{ padding: 14px 16px; }
+    main{ padding: 16px; }
+    .stat-grid{ grid-template-columns: 1fr 1fr; gap:8px; }
+    .stat-value{ font-size: 20px; }
+    .task-card{ grid-template-columns: 1fr; }
+    .progress-wrap{ min-width: unset; }
+    .brand-text span{ display:none; }
+
+    .section-head{ flex-direction: column; align-items: stretch; gap:10px; }
+    .filters{ flex-wrap: nowrap; width:100%; }
+    .filters select{ flex:1; min-width:0; }
+    .filters button.action{ flex-shrink:0; white-space:nowrap; }
+
+    .table-wrap{ overflow-x: visible; }
+    table.data-table{ min-width: 0; }
+    table.data-table thead{ display:none; }
+    table.data-table tbody tr{
+      display:block;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 0;
+    }
+    table.data-table tbody tr:last-child{ border-bottom:none; }
+    table.data-table tbody td{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding: 4px 4px;
+      border-bottom:none;
+      white-space: normal;
+    }
+    table.data-table tbody td::before{
+      content: attr(data-label);
+      color: var(--text-dim);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      flex-shrink:0;
+    }
+    table.data-table td.file-name{
+      max-width: none;
+      font-weight:600;
+      font-size: 14px;
+    }
+    table.data-table td.file-name::before{ content: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark"><img src="https://boinc.berkeley.edu/logo/boinc_logo.png" alt="BOINC logo"></div>
+    <div class="brand-text">
+      <h1>BOINC Monitor</h1>
+      <span id="host-label">boinc-client</span>
+    </div>
+  </div>
+  <div class="live-pill">
+    <span class="dot" id="live-dot"></span>
+    <span id="live-status">connected</span>
+  </div>
+</header>
+
+<main>
+
+  <section>
+    <div class="section-head"><h2>Live <b>overview</b></h2></div>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Active tasks</div>
+        <div class="stat-value" id="stat-active-tasks">–</div>
+        <div class="stat-sub" id="stat-active-sub">&nbsp;</div>
+      </div>
+      <div class="stat-card accent-yellow">
+        <div class="stat-label">Completed tasks (all time)</div>
+        <div class="stat-value" id="stat-completed">–</div>
+        <div class="stat-sub" id="stat-completed-sub">&nbsp;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">BOINC disk space</div>
+        <div class="stat-value" id="stat-disk">–</div>
+        <div class="stat-sub" id="stat-disk-sub">&nbsp;</div>
+      </div>
+      <div class="stat-card accent-yellow">
+        <div class="stat-label">Total credit</div>
+        <div class="stat-value" id="stat-credits">–</div>
+        <div class="stat-sub" id="stat-credits-sub">&nbsp;</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>LXC <b>hardware</b></h2></div>
+    <div class="stat-grid" id="sys-grid">
+      <div class="stat-card">
+        <div class="stat-label">CPU</div>
+        <div class="stat-value" id="sys-cpu">–</div>
+        <div class="stat-sub" id="sys-cpu-sub">&nbsp;</div>
+      </div>
+      <div class="stat-card accent-yellow">
+        <div class="stat-label">RAM</div>
+        <div class="stat-value" id="sys-ram">–</div>
+        <div class="stat-sub" id="sys-ram-sub">&nbsp;</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Storage</div>
+        <div class="stat-value" id="sys-disk">–</div>
+        <div class="stat-sub" id="sys-disk-sub">&nbsp;</div>
+      </div>
+      <div class="stat-card accent-yellow">
+        <div class="stat-label">Load average</div>
+        <div class="stat-value" id="sys-load">–</div>
+        <div class="stat-sub">1m / 5m / 15m</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Active <b>tasks</b></h2></div>
+    <div class="task-list" id="task-list">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Attached <b>projects</b></h2></div>
+    <div class="project-grid" id="project-grid">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Data <b>transferred</b></h2>
+      <div class="filters">
+        <select id="filter-year"></select>
+        <select id="filter-month">
+          <option value="">All months</option>
+        </select>
+        <button class="action" id="btn-sync">Sync now</button>
+      </div>
+    </div>
+    <div class="stat-sub" id="transfer-total-label" style="margin-bottom:10px;">&nbsp;</div>
+    <div class="table-wrap">
+      <table class="data-table" id="transfer-table">
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Project</th>
+            <th>Down/Up</th>
+            <th>Total</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="transfer-table-body">
+          <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span class="dot-inline">●</span> auto-refresh every 10s · data read locally via boinccmd
+</footer>
+
+<script>
+const REFRESH_MS = 10000;
+
+function fmtSeconds(s){
+  s = Number(s)||0;
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  if(h>0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function fmtBytes(mb){
+  const n = parseFloat(mb);
+  if(isNaN(n)) return '–';
+  if(n > 1024) return (n/1024).toFixed(2) + ' GB';
+  return n.toFixed(1) + ' MB';
+}
+
+async function fetchJSON(url, opts){
+  try{
+    const r = await fetch(url, opts);
+    if(!r.ok) throw new Error('bad status');
+    return await r.json();
+  }catch(e){
+    return null;
+  }
+}
+
+function setLive(ok){
+  const dot = document.getElementById('live-dot');
+  const status = document.getElementById('live-status');
+  if(ok){ dot.classList.remove('offline'); status.textContent = 'connected'; }
+  else{ dot.classList.add('offline'); status.textContent = 'unreachable'; }
+}
+
+let appNamesCache = {};
+
+async function refreshLive(){
+  const tasks = await fetchJSON('/api/live/tasks');
+  const projects = await fetchJSON('/api/live/projects');
+  const disk = await fetchJSON('/api/live/disk');
+
+  setLive(tasks !== null);
+
+  // --- stat: active tasks
+  const activeList = (tasks||[]).filter(t => (t.active_task_state||'').includes('EXECUTING') || t.state === 'downloaded');
+  document.getElementById('stat-active-tasks').textContent = activeList.length;
+  document.getElementById('stat-active-sub').textContent = activeList.length ? activeList.map(t=>t['name']||'').slice(0,1).join('') : 'no tasks running';
+
+  // --- stat: disk
+  if(disk){
+    document.getElementById('stat-disk').textContent = fmtBytes(disk.free);
+    document.getElementById('stat-disk-sub').textContent = disk.total ? `free of ${fmtBytes(disk.total)} total` : '';
+  }
+
+  // --- stat: credits (sum across all projects)
+  const projectUrlToName = {};
+  if(projects){
+    let totalCredit = 0;
+    projects.forEach(p => {
+      totalCredit += parseFloat(p.user_total_credit)||0;
+      const purl = p['master URL'];
+      if(purl) projectUrlToName[purl] = (p.name && p.name.trim()) ? p.name : purl.replace(/^https?:\/\//,'').replace(/\/$/,'');
+    });
+    document.getElementById('stat-credits').textContent = totalCredit.toLocaleString('en-US', {maximumFractionDigits:0});
+    document.getElementById('stat-credits-sub').textContent = `across ${projects.length} projects`;
+  }
+
+  // --- render task list
+  const taskListEl = document.getElementById('task-list');
+  if(!tasks || tasks.length === 0){
+    taskListEl.innerHTML = '<div class="empty-state">No tasks queued or running right now.</div>';
+  } else {
+    taskListEl.innerHTML = tasks.map(t => {
+      const frac = parseFloat(t['fraction done']||0);
+      const pct = Math.round(frac*100);
+      const remaining = t['estimated CPU time remaining'] ? fmtSeconds(t['estimated CPU time remaining']) + ' remaining' : '';
+      const state = t['active_task_state'] || t['state'] || '—';
+
+      const purl = t['project URL'];
+      const projectName = projectUrlToName[purl] || (purl||'').replace(/^https?:\/\//,'').replace(/\/$/,'');
+      const shortCode = (t['name']||'').split('_')[0].toLowerCase();
+      const appFriendly = appNamesCache[shortCode];
+      const projectLine = projectName
+        ? `<a href="${purl||'#'}" target="_blank" rel="noopener">${projectName}${appFriendly ? ' · ' + appFriendly : ''}</a>`
+        : '';
+
+      return `
+        <div class="task-card">
+          <div class="task-main">
+            <div class="task-title">${t['name']||t['WU name']||'task'}</div>
+            <div class="task-meta">
+              <span>${state}</span>
+              ${projectLine ? `<span>${projectLine}</span>` : ''}
+              <span>${remaining}</span>
+            </div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <div class="progress-pct">${pct}%</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // --- render projects
+  const projGridEl = document.getElementById('project-grid');
+  if(!projects || projects.length === 0){
+    projGridEl.innerHTML = '<div class="empty-state">No projects attached.</div>';
+  } else {
+    projGridEl.innerHTML = projects.map(p => {
+      const name = p.name && p.name.trim() ? p.name : (p['master URL']||'').replace(/^https?:\/\//,'').replace(/\/$/,'');
+      const url = p['master URL'] || '#';
+      const credit = parseFloat(p.user_total_credit||0).toLocaleString('en-US', {maximumFractionDigits:0});
+      const status = p['scheduler RPC pending']==='yes' ? 'communicating' : (p['suspended via GUI']==='yes' ? 'suspended' : 'active');
+      return `
+        <div class="project-card">
+          <div class="project-name"><a href="${url}" target="_blank" rel="noopener">${name}</a></div>
+          <div class="project-row"><span>Total credit</span><b>${credit}</b></div>
+          <div class="project-row"><span>Disk used</span><b>${fmtBytes(p['disk usage']?.replace('MB','')||0)}</b></div>
+          <div class="project-row"><span>Status</span><b>${status}</b></div>
+        </div>`;
+    }).join('');
+  }
+}
+
+function fmtBytesExact(n){
+  n = Number(n)||0;
+  if(n >= 1024**3) return (n/1024**3).toFixed(2) + ' GB';
+  if(n >= 1024**2) return (n/1024**2).toFixed(2) + ' MB';
+  if(n >= 1024) return (n/1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
+
+function fmtDateShort(iso){
+  if(!iso) return '–';
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('en-US', {day:'2-digit', month:'2-digit', year:'2-digit'}) +
+         ' ' + d.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+}
+
+async function refreshSystemInfo(){
+  const info = await fetchJSON('/api/system/info');
+  if(!info) return;
+
+  document.getElementById('sys-cpu').textContent = `${info.cpu.percent}%`;
+  document.getElementById('sys-cpu-sub').textContent = `${info.cpu.cores} cores assigned`;
+
+  document.getElementById('sys-ram').textContent = `${info.ram.percent}%`;
+  document.getElementById('sys-ram-sub').textContent =
+    `${(info.ram.used_mb/1024).toFixed(2)} / ${(info.ram.total_mb/1024).toFixed(2)} GB`;
+
+  document.getElementById('sys-disk').textContent = `${info.disk.percent}%`;
+  document.getElementById('sys-disk-sub').textContent =
+    `${info.disk.used_gb} / ${info.disk.total_gb} GB used`;
+
+  document.getElementById('sys-load').textContent = info.cpu.load_avg['1m'];
+  document.getElementById('sys-load').nextElementSibling; // no-op, keeps structure clear
+}
+
+async function refreshTransfers(){
+  const year = document.getElementById('filter-year').value;
+  const month = document.getElementById('filter-month').value;
+  const params = new URLSearchParams();
+  if(year) params.set('year', year);
+  if(month) params.set('month', month);
+
+  const rows = await fetchJSON('/api/history/transfers?' + params.toString());
+  const tbody = document.getElementById('transfer-table-body');
+  const totalLabel = document.getElementById('transfer-total-label');
+
+  if(!rows || rows.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No transfers recorded for this period.</td></tr>';
+    totalLabel.textContent = '';
+    return;
+  }
+
+  let totalDown = 0, totalUp = 0;
+  tbody.innerHTML = rows.map(r => {
+    totalDown += r.downloaded_bytes || 0;
+    totalUp += r.uploaded_bytes || 0;
+    const total = (r.downloaded_bytes||0) + (r.uploaded_bytes||0);
+    const shortCode = (r.task_name||'').split('_')[0].toLowerCase();
+    const appFriendly = appNamesCache[shortCode];
+    const projectLabel = appFriendly ? `${r.project_name||'–'} · ${appFriendly}` : (r.project_name||'–');
+    return `
+      <tr>
+        <td class="file-name" title="${r.task_name}">${r.task_name}</td>
+        <td class="dim" data-label="Project">${projectLabel}</td>
+        <td class="num" data-label="Down/Up">${fmtBytesExact(r.downloaded_bytes)} / ${fmtBytesExact(r.uploaded_bytes)}</td>
+        <td data-label="Total">${fmtBytesExact(total)}</td>
+        <td class="dim" data-label="Date">${fmtDateShort(r.last_seen)}</td>
+      </tr>`;
+  }).join('');
+
+  totalLabel.textContent = `↓ ${fmtBytesExact(totalDown)}  ·  ↑ ${fmtBytesExact(totalUp)}  ·  ${rows.length} tasks`;
+}
+
+async function refreshHistorySummary(){
+  const data = await fetchJSON('/api/history/summary');
+  document.getElementById('stat-completed').textContent = (data||[]).reduce((a,b)=>a+b.tasks_completed,0);
+  document.getElementById('stat-completed-sub').textContent = 'since monitoring began';
+}
+
+async function refreshAppNames(){
+  const data = await fetchJSON('/api/live/app-names');
+  if(data) appNamesCache = data;
+}
+
+function populateFilters(){
+  const yearSel = document.getElementById('filter-year');
+  const now = new Date().getFullYear();
+  yearSel.innerHTML = '<option value="">All years</option>' +
+    Array.from({length:5}, (_,i)=> now-i).map(y=>`<option value="${y}">${y}</option>`).join('');
+
+  const monthSel = document.getElementById('filter-month');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  monthSel.innerHTML = '<option value="">All months</option>' +
+    months.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('');
+}
+
+document.getElementById('btn-sync').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-sync');
+  btn.textContent = 'Syncing...';
+  await fetchJSON('/api/history/sync', {method:'POST'});
+  await refreshAll();
+  btn.textContent = 'Sync now';
+});
+
+document.getElementById('filter-year').addEventListener('change', refreshTransfers);
+document.getElementById('filter-month').addEventListener('change', refreshTransfers);
+
+async function refreshAll(){
+  await refreshAppNames();
+  await refreshLive();
+  await refreshSystemInfo();
+  await refreshHistorySummary();
+  await refreshTransfers();
+}
+
+populateFilters();
+refreshAll();
+setInterval(refreshLive, REFRESH_MS);
+setInterval(refreshSystemInfo, REFRESH_MS);
+setInterval(refreshHistorySummary, 60000);
+setInterval(refreshAppNames, 60000);
+</script>
+
+</body>
+</html>
