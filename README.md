@@ -50,7 +50,7 @@ the durable copy.
 ## Requirements
 
 - A Linux machine (tested on Debian) already running `boinc-client`
-- Python 3 + `venv`
+- Python 3 + `venv` (on Debian / Raspberry Pi OS: `sudo apt install python3-venv`)
 - `systemd` (for the optional auto-start service and log reading)
 
 ## Deploy
@@ -85,12 +85,29 @@ nothing machine-specific ends up hardcoded in this public repo by default.
 
 ## Making it permanent
 
-**Auto-start on boot** (systemd service):
+**Run as an unprivileged user.** The dashboard only needs to read BOINC's
+state and write its own SQLite file, so it should not run as root. Create a
+dedicated user, give it read access to BOINC and the journal, and let it own
+the app folder:
+```bash
+useradd -r -s /usr/sbin/nologin boincdash
+usermod -aG boinc,systemd-journal boincdash
+chown -R boincdash: /opt/boinc-dashboard
+```
+
+The `boinc` group must be able to read the BOINC data directory (usually
+`/var/lib/boinc` or `/var/lib/boinc-client`), including `client_state.xml`
+and `gui_rpc_auth.cfg`. If it can't, `chmod g+rx` the directory and
+`chmod g+r` those files. Group changes only apply to processes started after
+the change, so restart the service afterwards.
+
+**Auto-start on boot** (systemd service, runs as `boincdash` and is sandboxed):
 ```bash
 cp boinc-dashboard.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now boinc-dashboard
 ```
+If the service fails to start, `journalctl -u boinc-dashboard -e` shows why.
 
 **Automatic history sync** (cron, every hour — the dashboard also has a
 manual "Sync now" button for on-demand updates):

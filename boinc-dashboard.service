@@ -9,7 +9,15 @@ WorkingDirectory=/opt/boinc-dashboard
 ExecStart=/opt/boinc-dashboard/venv/bin/python3 /opt/boinc-dashboard/app.py
 Restart=always
 RestartSec=5
-User=root
+User=boincdash
+Group=boincdash
+SupplementaryGroups=boinc systemd-journal
+# Hardening: the dashboard only reads BOINC state and writes its own SQLite file
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/boinc-dashboard
 
 [Install]
 WantedBy=multi-user.target
