@@ -66,7 +66,10 @@ the durable copy.
    ```bash
    ./venv/bin/python3 app.py
    ```
-   Then open `http://<machine-ip>:5000` from another device on the same network.
+   Then open `http://localhost:5000`. The dashboard has no authentication, so it
+listens on `127.0.0.1` by default. To reach it from another device on a trusted
+LAN, set `BOINC_DASH_HOST=0.0.0.0` (and optionally `BOINC_DASH_PORT`), or keep
+the default and use an SSH tunnel: `ssh -L 5000:localhost:5000 user@host`.
 
 ## Customization
 

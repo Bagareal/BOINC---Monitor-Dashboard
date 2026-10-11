@@ -672,4 +672,9 @@ def index():
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    # The dashboard has no authentication: bind to localhost unless told otherwise.
+    app.run(
+        host=os.environ.get("BOINC_DASH_HOST", "127.0.0.1"),
+        port=int(os.environ.get("BOINC_DASH_PORT", "5000")),
+        debug=False,
+    )
