@@ -83,6 +83,14 @@ and replace it with whatever you'd like, e.g.:
 It's a static label, not read from the system — this is intentional, so
 nothing machine-specific ends up hardcoded in this public repo by default.
 
+## Configuration
+
+| Environment variable | Default | Purpose |
+| -------------------- | ------- | ------- |
+| `BOINC_DATA_DIR` | auto-detected: `/var/lib/boinc`, else `/var/lib/boinc-client` | BOINC data directory (`client_state.xml`, `gui_rpc_auth.cfg`) |
+
+Set these in the systemd unit with `Environment=BOINC_DATA_DIR=/path`.
+
 ## Making it permanent
 
 **Auto-start on boot** (systemd service):

@@ -19,7 +19,22 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(APP_DIR, "boinc_history.db")
 BOINCCMD = "boinccmd"  # deve essere nel PATH sull'LXC (installato con boinc-client)
 BOINC_SERVICE = "boinc-client"  # nome del servizio systemd, usato per leggere i log
-CLIENT_STATE_XML = "/var/lib/boinc-client/client_state.xml"  # stato interno di BOINC
+
+
+def _find_boinc_data_dir():
+    """BOINC data directory. Override with BOINC_DATA_DIR; otherwise use the first
+    known location that exists (Debian/Ubuntu and the upstream BOINC repo differ)."""
+    env = os.environ.get("BOINC_DATA_DIR")
+    if env:
+        return env
+    for candidate in ("/var/lib/boinc", "/var/lib/boinc-client"):
+        if os.path.isdir(candidate):
+            return candidate
+    return "/var/lib/boinc-client"  # previous default
+
+
+BOINC_DATA_DIR = _find_boinc_data_dir()
+CLIENT_STATE_XML = os.path.join(BOINC_DATA_DIR, "client_state.xml")  # stato interno di BOINC
 
 app = Flask(__name__)
 
@@ -27,8 +42,11 @@ app = Flask(__name__)
 def run_boinccmd(args):
     """Esegue boinccmd con gli argomenti dati e ritorna l'output testuale."""
     try:
+        # boinccmd reads the GUI RPC password from gui_rpc_auth.cfg in its working
+        # directory, so run it from the BOINC data dir.
         result = subprocess.run(
-            [BOINCCMD] + args, capture_output=True, text=True, timeout=15
+            [BOINCCMD] + args, capture_output=True, text=True, timeout=15,
+            cwd=BOINC_DATA_DIR if os.path.isdir(BOINC_DATA_DIR) else None,
         )
         return result.stdout
     except Exception as e:
