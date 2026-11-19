@@ -21,7 +21,7 @@ BOINCCMD = "boinccmd"  # deve essere nel PATH sull'LXC (installato con boinc-cli
 BOINC_SERVICE = "boinc-client"  # nome del servizio systemd, usato per leggere i log
 CLIENT_STATE_XML = "/var/lib/boinc-client/client_state.xml"  # stato interno di BOINC
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=APP_DIR)
 
 
 def run_boinccmd(args):
