@@ -72,7 +72,7 @@ the durable copy.
 
 By default the header just shows a generic "boinc-client" label under the
 logo. If you want it to show your own machine's name (like "myhost ·
-boinc-client"), edit this line in `templates/index.html`:
+boinc-client"), edit this line in `index.html`:
 ```html
 <span id="host-label">boinc-client</span>
 ```
